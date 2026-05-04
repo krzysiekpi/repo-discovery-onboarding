@@ -16,10 +16,15 @@ def _sample_repo(tmp_path: Path) -> Path:
     (repo / "tests").mkdir()
     (repo / "PRD").mkdir()
     (repo / "playwright-report").mkdir()
+    (repo / "packages" / "backend" / ".uv-cache" / "archive").mkdir(parents=True)
     (repo / ".github" / "workflows").mkdir(parents=True)
     (repo / "README.md").write_text("# Startup App\n\nLocal app docs.\n", encoding="utf-8")
     (repo / "PRD" / "startup.md").write_text("# Startup Product\n\nProduct requirements.\n", encoding="utf-8")
     (repo / "playwright-report" / "index.html").write_text("<!-- TODO generated report -->\n", encoding="utf-8")
+    (repo / "packages" / "backend" / ".uv-cache" / "archive" / "generated.py").write_text(
+        "# TODO generated cache\n",
+        encoding="utf-8",
+    )
     (repo / ".env.example").write_text("API_KEY=\n", encoding="utf-8")
     (repo / "package.json").write_text(
         json.dumps({
@@ -60,6 +65,9 @@ def test_analyze_repo_detects_core_signals(tmp_path: Path) -> None:
     assert analysis.ci_signals
     assert analysis.env_signals == [".env.example"]
     assert not any(todo["path"].startswith("playwright-report/") for todo in analysis.todos)
+    assert not any(".uv-cache" in manifest["path"] for manifest in analysis.manifests)
+    assert not any(".uv-cache" in todo["path"] for todo in analysis.todos)
+    assert ".uv-cache" not in render_discovery(analysis)
 
 
 def test_renderers_include_expected_sections(tmp_path: Path) -> None:

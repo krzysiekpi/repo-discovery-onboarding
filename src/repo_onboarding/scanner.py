@@ -16,9 +16,14 @@ EXCLUDED_DIRS = {
     ".codex",
     ".cursor",
     ".taskmaster",
+    ".cache",
     ".hg",
+    ".npm",
+    ".pnpm-store",
     ".svn",
+    ".uv-cache",
     ".venv",
+    ".yarn",
     ".codex-pdf-venv",
     "venv",
     "env",
@@ -32,6 +37,7 @@ EXCLUDED_DIRS = {
     "build",
     "coverage",
     "dev-dist",
+    "htmlcov",
     "playwright-report",
     "test-results",
     ".next",
@@ -193,12 +199,14 @@ def _is_excluded(path: Path, root: Path) -> bool:
     rel_parts = path.relative_to(root).parts
     if path.name in {".DS_Store", ".gitkeep"}:
         return True
-    for part in rel_parts:
+    for index, part in enumerate(rel_parts):
         if part in EXCLUDED_DIRS:
             return True
         if part.endswith(".egg-info"):
             return True
         if part.startswith(".venv"):
+            return True
+        if part.startswith(".") and part != ".github" and (index < len(rel_parts) - 1 or path.is_dir()):
             return True
     return path.is_file() and _is_sensitive_env_file(path.name)
 
