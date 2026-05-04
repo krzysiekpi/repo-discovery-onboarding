@@ -14,6 +14,7 @@ Optional:
 
 ```text
 /repo-onboarding /absolute/path/to/repo --out ./reports/custom-name
+/repo-onboarding /absolute/path/to/repo --role ceo
 /repo-onboarding /absolute/path/to/repo --role frontend
 ```
 

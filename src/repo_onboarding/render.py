@@ -8,6 +8,7 @@ from repo_onboarding.scanner import RepoAnalysis
 
 ROLE_LABELS = {
     "all": "All roles",
+    "ceo": "CEO / Founder",
     "analyst": "Analyst / Analytics Consultant",
     "frontend": "Frontend Developer",
     "backend": "Backend Developer",
@@ -221,6 +222,9 @@ def normalize_role(role: str) -> str:
         "pm": "project-manager",
         "project": "project-manager",
         "manager": "project-manager",
+        "founder": "ceo",
+        "exec": "ceo",
+        "executive": "ceo",
     }
     normalized = aliases.get(normalized, normalized)
     if normalized not in ROLE_LABELS:
@@ -246,7 +250,7 @@ def _onboarding_orientation(analysis: RepoAnalysis, role: str) -> str:
         workflows = ", ".join(f"`{item['workflow']}`" for item in analysis.workflow_summaries[:10])
         lines.append(f"- Workflow layer: {workflows}.")
     if analysis.business_artifacts:
-        lines.append("- Business record: client profiles, requirements, KBs, metric YAMLs, constraints, evidence packs, and artifact indexes are first-class repo artifacts.")
+        lines.append("- Product/domain record: requirements, docs, schemas, routes, and tests should be read together before trusting a behavior claim.")
     lines.append("")
     if role == "all":
         lines.append("Onboarding goal: understand one business workflow end to end, then make a small role-appropriate change with the right verification command.")
@@ -260,9 +264,9 @@ def _first_day_plan(analysis: RepoAnalysis, role: str) -> str:
     lines = [
         "1. Read the root `README.md` and the generated discovery report for this repo.",
         f"2. Use the `{ROLE_LABELS[role]}` track in Section 8; do not try to learn every folder first.",
-        "3. Trace one user journey from Section 9 through UI/API/workflow/data artifacts.",
+        "3. Trace one user journey from Section 9 through UI, API, services, data model, and tests.",
         "4. Run the smallest local verification command for your role.",
-        "5. Write down the source-of-truth rule you used if business artifacts disagree.",
+        "5. Write down the source-of-truth rule you used if docs, code, schemas, and tests disagree.",
     ]
     if docs:
         lines.append("")
@@ -273,6 +277,7 @@ def _first_day_plan(analysis: RepoAnalysis, role: str) -> str:
 
 def _role_tracks(analysis: RepoAnalysis, role: str) -> str:
     tracks = {
+        "ceo": _ceo_track,
         "analyst": _analyst_track,
         "frontend": _frontend_track,
         "backend": _backend_track,
@@ -316,7 +321,7 @@ def _recommended_learning_order(analysis: RepoAnalysis) -> str:
     first_day = [
         "Run local setup for the touched area.",
         "Trace one journey through UI/API/workflow/artifact boundaries.",
-        "Identify the source-of-truth artifacts for one client or domain.",
+        "Identify the source-of-truth docs/code/tests for one product domain.",
     ]
     first_week = [
         "Make one small contribution from Section 13.",
@@ -333,6 +338,54 @@ def _recommended_learning_order(analysis: RepoAnalysis) -> str:
         "### First week",
         *[f"- {item}" for item in first_week],
     ])
+
+
+def _ceo_track(analysis: RepoAnalysis) -> str:
+    lines = ["### CEO / Founder", "", "Purpose: understand what the product does, where execution risk sits, and what demo path proves the repo is alive."]
+    lines.append("")
+    if analysis.readme_summary:
+        lines.append("Product thesis from repo evidence:")
+        lines.extend(f"- {item}" for item in analysis.readme_summary[:4])
+        lines.append("")
+    lines.append("Read first:")
+    for path in _ceo_must_reads(analysis):
+        lines.append(f"- `{path}`")
+    lines.append("")
+    lines.append("Evaluate first:")
+    lines.extend([
+        "- Product promise: does README/PRD clearly state the user pain and expected outcome?",
+        "- Demo path: can someone go from login/onboarding to dashboard/result/history without maintainer help?",
+        "- Trust risk: what breaks confidence fastest: auth, LLM output quality, profile data, image/menu parsing, or admin controls?",
+        "- Delivery risk: which command is the real release gate, and why is CI missing or present?",
+        "- Ownership: who owns product intent when README/PRD, implemented routes, and tests disagree?",
+    ])
+    lines.append("")
+    lines.append("Do first:")
+    lines.extend([
+        "- Ask the team to run the shortest demo and narrate which routes/API calls prove the main product loop.",
+        "- Pick one KPI for the next build slice: activation, successful analysis, saved profile, repeat use, or admin reliability.",
+        "- Turn one open question from the discovery report into a concrete acceptance check.",
+    ])
+    lines.append("")
+    lines.append("Avoid: judging progress by repo activity alone; insist on one product journey, one verification command, and one owner for source-of-truth conflicts.")
+    return "\n".join(lines)
+
+
+def _ceo_must_reads(analysis: RepoAnalysis) -> list[str]:
+    paths: list[str] = []
+    for candidate in ("README.md",):
+        if any(item["path"] == candidate for item in analysis.doc_headings):
+            paths.append(candidate)
+    for artifact in analysis.business_artifacts:
+        if artifact["path"] not in paths:
+            paths.append(artifact["path"])
+    for domain in analysis.detected_domains:
+        first = domain["first_read"]
+        if first and first not in paths:
+            paths.append(first)
+        if len(paths) >= 8:
+            break
+    return paths or ["README.md"]
 
 
 def _analyst_track(analysis: RepoAnalysis) -> str:
@@ -369,9 +422,13 @@ def _frontend_track(analysis: RepoAnalysis) -> str:
             lines.append(f"- `{call['name']}()` -> {call['method']} `{call['route']}`")
     lines.append("")
     lines.append("Do first:")
+    app_paths = _frontend_app_paths(analysis)
+    api_client_paths = _frontend_api_paths(analysis)
+    app_target = ", ".join(f"`{path}`" for path in app_paths[:2]) if app_paths else "the app/router entrypoint listed above"
+    api_target = ", ".join(f"`{path}`" for path in api_client_paths[:2]) if api_client_paths else "the frontend API/data-loading layer"
     lines.extend([
-        "- Start at `web/frontend/src/App.tsx`, then inspect the page/component tied to your route.",
-        "- Follow UI data loading through `web/frontend/src/lib/api.ts` before changing state shape.",
+        f"- Start at {app_target}, then inspect the page/component tied to your route.",
+        f"- Follow UI data loading through {api_target} before changing state shape.",
         "- Run frontend test/typecheck/build commands before handing off UI work.",
     ])
     lines.append("")
@@ -380,7 +437,7 @@ def _frontend_track(analysis: RepoAnalysis) -> str:
 
 
 def _backend_track(analysis: RepoAnalysis) -> str:
-    lines = ["### Backend Developer", "", "Purpose: preserve the API/read-service/workflow boundary and keep artifact writes auditable."]
+    lines = ["### Backend Developer", "", "Purpose: preserve API contracts, service boundaries, persistence behavior, and auth/error semantics."]
     if analysis.api_routes:
         lines.append("")
         lines.append("API routes to trace first:")
@@ -397,6 +454,24 @@ def _backend_track(analysis: RepoAnalysis) -> str:
     lines.append("")
     lines.append("Avoid: duplicating business logic in route handlers when a service/model layer already owns it.")
     return "\n".join(lines)
+
+
+def _frontend_app_paths(analysis: RepoAnalysis) -> list[str]:
+    paths = []
+    for route in analysis.frontend_routes:
+        path = route["path"]
+        if path not in paths:
+            paths.append(path)
+    return paths
+
+
+def _frontend_api_paths(analysis: RepoAnalysis) -> list[str]:
+    paths = []
+    for call in analysis.frontend_api_calls:
+        path = call["path"]
+        if path not in paths:
+            paths.append(path)
+    return paths
 
 
 def _data_governance_track(analysis: RepoAnalysis) -> str:
@@ -469,6 +544,7 @@ def _onboarding_contracts(analysis: RepoAnalysis) -> str:
 
 def _first_contribution_paths(analysis: RepoAnalysis) -> str:
     paths = [
+        "CEO/founder: turn one unclear product-risk question into an acceptance check for the next slice.",
         "Product/domain: improve one docs/requirements inconsistency and document the precedence used.",
         "Frontend: improve one route/page state, then run frontend tests/typecheck.",
         "Backend: add or tighten one API response path without bypassing existing service helpers.",
@@ -493,9 +569,9 @@ def _avoid_week_one(analysis: RepoAnalysis) -> str:
 def _quality_bar(analysis: RepoAnalysis) -> str:
     lines = [
         "- Every change should name the role/user journey it improves.",
-        "- Every business-facing claim should point to profile, requirements, metric YAML, evidence, constraints, or KB.",
-        "- Generated artifacts need visible draft/validation status when shown or edited.",
-        "- API changes should keep path traversal and artifact edit policy protections intact.",
+        "- Every product-facing claim should point to README, PRD, requirements, route code, schemas/models, or tests.",
+        "- Generated or persisted outputs need visible loading/error/success status when shown or edited.",
+        "- API changes should preserve authentication, authorization, validation, and error semantics.",
         "- UI changes should preserve typed API contracts and error visibility.",
     ]
     if analysis.commands:

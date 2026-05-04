@@ -87,6 +87,7 @@ def test_renderers_include_expected_sections(tmp_path: Path) -> None:
     assert "## 6. Must-Read Files" in onboarding
     assert "## 7. Recommended Order of Learning" in onboarding
     assert "## 8. Role Tracks" in onboarding
+    assert "### CEO / Founder" in onboarding
     assert "### Analyst / Analytics Consultant" in onboarding
     assert "### Frontend Developer" in onboarding
     assert "### Backend Developer" in onboarding
@@ -96,6 +97,11 @@ def test_renderers_include_expected_sections(tmp_path: Path) -> None:
     assert "Role focus: Frontend Developer" in focused
     assert "### Frontend Developer" in focused
     assert "### Backend Developer" not in focused
+
+    ceo = render_onboarding(analysis, role="ceo")
+    assert "Role focus: CEO / Founder" in ceo
+    assert "### CEO / Founder" in ceo
+    assert "### Frontend Developer" not in ceo
 
 
 def test_cli_writes_requested_files(tmp_path: Path) -> None:

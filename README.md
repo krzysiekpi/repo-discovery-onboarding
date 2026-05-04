@@ -139,6 +139,9 @@ Or run one artifact at a time:
 ```text
 /discovery /absolute/path/to/friends-startup-repo
 /onboarding /absolute/path/to/friends-startup-repo
+/onboarding /absolute/path/to/friends-startup-repo --role ceo
+/onboarding /absolute/path/to/friends-startup-repo --role frontend
+/onboarding /absolute/path/to/friends-startup-repo --role backend
 ```
 
 The commands write markdown files under:

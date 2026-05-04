@@ -39,7 +39,7 @@ def main(argv: list[str] | None = None) -> int:
         command_parser.add_argument(
             "--role",
             default="all",
-            help="Onboarding role focus: all, analyst, frontend, backend, data-governance, project-manager.",
+            help="Onboarding role focus: all, ceo, analyst, frontend, backend, data-governance, project-manager.",
         )
         command_parser.add_argument(
             "--update",
