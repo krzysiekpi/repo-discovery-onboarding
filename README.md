@@ -46,6 +46,30 @@ repo-onboarding discovery --repo /path/to/repo --out ./reports/repo
 repo-onboarding onboarding --repo /path/to/repo --out ./reports/repo
 ```
 
+## Claude Code Slash Commands
+
+This repo also includes project commands in `.claude/commands/`.
+
+After cloning this repo, open Claude Code from the repo root and run:
+
+```text
+/repo-onboarding /absolute/path/to/friends-startup-repo
+```
+
+Or run one artifact at a time:
+
+```text
+/discovery /absolute/path/to/friends-startup-repo
+/onboarding /absolute/path/to/friends-startup-repo
+```
+
+The commands write markdown files under:
+
+```text
+reports/{repo-name}/discovery.md
+reports/{repo-name}/onboarding.md
+```
+
 ## No Install Alternative
 
 From this repo root:
