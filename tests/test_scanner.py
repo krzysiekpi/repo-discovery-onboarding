@@ -14,8 +14,12 @@ def _sample_repo(tmp_path: Path) -> Path:
     repo.mkdir()
     (repo / "src").mkdir()
     (repo / "tests").mkdir()
+    (repo / "PRD").mkdir()
+    (repo / "playwright-report").mkdir()
     (repo / ".github" / "workflows").mkdir(parents=True)
     (repo / "README.md").write_text("# Startup App\n\nLocal app docs.\n", encoding="utf-8")
+    (repo / "PRD" / "startup.md").write_text("# Startup Product\n\nProduct requirements.\n", encoding="utf-8")
+    (repo / "playwright-report" / "index.html").write_text("<!-- TODO generated report -->\n", encoding="utf-8")
     (repo / ".env.example").write_text("API_KEY=\n", encoding="utf-8")
     (repo / "package.json").write_text(
         json.dumps({
@@ -47,6 +51,7 @@ def test_analyze_repo_detects_core_signals(tmp_path: Path) -> None:
     assert any(item["language"] == "Python" for item in analysis.languages)
     assert any(command["command"] == "npm run test" for command in analysis.commands)
     assert any(manifest["path"] == "package.json" for manifest in analysis.manifests)
+    assert any(artifact["path"] == "PRD/startup.md" for artifact in analysis.business_artifacts)
     assert any(profile["name"] == "src" for profile in analysis.directory_profiles)
     assert analysis.entrypoints == ["src/app.py"]
     assert analysis.frontend_signals
@@ -54,6 +59,7 @@ def test_analyze_repo_detects_core_signals(tmp_path: Path) -> None:
     assert analysis.test_signals
     assert analysis.ci_signals
     assert analysis.env_signals == [".env.example"]
+    assert not any(todo["path"].startswith("playwright-report/") for todo in analysis.todos)
 
 
 def test_renderers_include_expected_sections(tmp_path: Path) -> None:
@@ -63,17 +69,19 @@ def test_renderers_include_expected_sections(tmp_path: Path) -> None:
     onboarding = render_onboarding(analysis)
 
     assert "# Repository Discovery Report - startup-app" in discovery
-    assert "## 4. Area Map" in discovery
-    assert "## 5. Detected Domains" in discovery
-    assert "## 6. Current Understanding" in discovery
-    assert "## 9. Source-of-Truth Analysis" in discovery
-    assert "## 10. Backend and Services" in discovery
-    assert "## 11. API and UI Surface" in discovery
-    assert "## 12. Frontend-to-API Contract" in discovery
-    assert "## 14. Agent and Workflow Map" in discovery
-    assert "## 19. Engagement Path" in discovery
-    assert "## 20. Hard Questions" in discovery
-    assert "## 21. Risks and Open Questions" in discovery
+    assert "## 1. Executive Summary" in discovery
+    assert "## 2. Discovery Confidence" in discovery
+    assert "## 7. Area Map" in discovery
+    assert "## 8. Detected Domains" in discovery
+    assert "## 9. Current Understanding" in discovery
+    assert "## 11. Source-of-Truth Analysis" in discovery
+    assert "## 12. Backend and Services" in discovery
+    assert "## 13. API and UI Surface" in discovery
+    assert "## 14. Frontend-to-API Contract" in discovery
+    assert "## 16. Automation and Workflow Map" in discovery
+    assert "## 21. Recommended Validation Path" in discovery
+    assert "## 22. Hard Questions" in discovery
+    assert "## 23. Risks and Open Questions" in discovery
     assert "# Onboarding Guide - startup-app" in onboarding
     assert "## 5. Detected Repo Domains" in onboarding
     assert "## 6. Must-Read Files" in onboarding

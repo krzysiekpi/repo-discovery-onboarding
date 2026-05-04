@@ -24,91 +24,99 @@ def render_discovery(analysis: RepoAnalysis) -> str:
         f"Generated: {generated}",
         f"Repository path: `{analysis.repo_root}`",
         "",
-        "## 1. Snapshot",
+        "## 1. Executive Summary",
+        "",
+        _executive_summary(analysis),
+        "",
+        "## 2. Discovery Confidence",
+        "",
+        _discovery_confidence(analysis),
+        "",
+        "## 3. Snapshot",
         "",
         _snapshot(analysis),
         "",
-        "## 2. Technology Signals",
-        "",
-        _language_table(analysis),
-        "",
-        "## 3. Repository Shape",
-        "",
-        _repo_shape(analysis),
-        "",
-        "## 4. Area Map",
-        "",
-        _area_map(analysis),
-        "",
-        "## 5. Detected Domains",
-        "",
-        _detected_domains_section(analysis),
-        "",
-        "## 6. Current Understanding",
-        "",
-        _current_understanding(analysis),
-        "",
-        "## 7. Business and Product Context",
+        "## 4. Product and Documentation Context",
         "",
         _business_context(analysis),
         "",
-        "## 8. Business Artifacts and Operating Model",
+        "## 5. Technology Signals",
+        "",
+        _language_table(analysis),
+        "",
+        "## 6. Repository Shape",
+        "",
+        _repo_shape(analysis),
+        "",
+        "## 7. Area Map",
+        "",
+        _area_map(analysis),
+        "",
+        "## 8. Detected Domains",
+        "",
+        _detected_domains_section(analysis),
+        "",
+        "## 9. Current Understanding",
+        "",
+        _current_understanding(analysis),
+        "",
+        "## 10. Domain Artifacts and Operating Model",
         "",
         _business_artifacts(analysis),
         "",
-        "## 9. Source-of-Truth Analysis",
+        "## 11. Source-of-Truth Analysis",
         "",
         _source_of_truth_analysis(analysis),
         "",
-        "## 10. Backend and Services",
+        "## 12. Backend and Services",
         "",
         _area_section(analysis.backend_signals, analysis.entrypoints),
         "",
-        "## 11. API and UI Surface",
+        "## 13. API and UI Surface",
         "",
         _surface_area(analysis),
         "",
-        "## 12. Frontend-to-API Contract",
+        "## 14. Frontend-to-API Contract",
         "",
         _frontend_api_contract(analysis),
         "",
-        "## 13. Frontend and User Experience",
+        "## 15. Frontend and User Experience",
         "",
         _frontend_experience(analysis),
         "",
-        "## 14. Agent and Workflow Map",
+        "## 16. Automation and Workflow Map",
         "",
         _workflow_map(analysis),
         "",
-        "## 15. Data, Analytics, and Governance",
+        "## 17. Data, Domain Model, and Governance",
         "",
         _area_section(analysis.data_signals, []),
         "",
-        "## 16. Likely User Journeys",
+        "## 18. Likely User Journeys",
         "",
         _likely_user_journeys(analysis),
         "",
-        "## 17. Inferred Commands",
+        "## 19. Inferred Commands",
         "",
         _commands(analysis),
         "",
-        "## 18. Tests, CI, and Operations",
+        "## 20. Tests, CI, and Operations",
         "",
         _ops(analysis),
         "",
-        "## 19. Engagement Path",
+        "## 21. Recommended Validation Path",
         "",
-        _engagement_path(analysis),
+        _validation_path(analysis),
         "",
-        "## 20. Hard Questions",
+        "## 22. Hard Questions",
         "",
         _hard_questions(analysis),
         "",
-        "## 21. Risks and Open Questions",
+        "## 23. Risks and Open Questions",
         "",
         _risks(analysis),
         "",
-        "## 22. Suggested Next Steps",
+        "## 24. Suggested Next Steps",
         "",
         _next_steps(analysis),
         "",
@@ -228,7 +236,9 @@ def _onboarding_orientation(analysis: RepoAnalysis, role: str) -> str:
     if analysis.package_managers:
         lines.append(f"- Stack/build signals: {', '.join(analysis.package_managers)}.")
     if analysis.api_routes:
-        lines.append(f"- API surface: {len(analysis.api_routes)} detected route(s), mostly under `web/api/main.py`.")
+        api_paths = sorted({route["path"] for route in analysis.api_routes})
+        primary = api_paths[0] if api_paths else "backend route files"
+        lines.append(f"- API surface: {len(analysis.api_routes)} detected route(s), starting in `{primary}`.")
     if analysis.frontend_routes:
         concrete_routes = [route["route"] for route in analysis.frontend_routes if route["route"] != "*"]
         lines.append(f"- UI surface: {len(concrete_routes)} concrete React route(s): {', '.join(f'`{route}`' for route in concrete_routes[:8])}.")
@@ -340,12 +350,12 @@ def _analyst_track(analysis: RepoAnalysis) -> str:
         "- Find one query or metric requirement and trace whether it has implemented semantics and evidence.",
     ])
     lines.append("")
-    lines.append("Avoid: editing generated semantic YAML or evidence without noting validation status.")
+    lines.append("Avoid: changing domain logic without checking the matching tests, docs, and persisted model/schema.")
     return "\n".join(lines)
 
 
 def _frontend_track(analysis: RepoAnalysis) -> str:
-    lines = ["### Frontend Developer", "", "Purpose: make the Studio/operator UI easier to inspect, launch, and safely edit client artifacts."]
+    lines = ["### Frontend Developer", "", "Purpose: make the user-facing UI easier to inspect, navigate, and verify."]
     lines.append("")
     if analysis.frontend_routes:
         lines.append("UI routes:")
@@ -365,7 +375,7 @@ def _frontend_track(analysis: RepoAnalysis) -> str:
         "- Run frontend test/typecheck/build commands before handing off UI work.",
     ])
     lines.append("")
-    lines.append("Avoid: adding UI states that hide whether an artifact is draft, generated, editable, or validation-required.")
+    lines.append("Avoid: adding UI states that hide loading, error, auth, or persistence status.")
     return "\n".join(lines)
 
 
@@ -380,18 +390,18 @@ def _backend_track(analysis: RepoAnalysis) -> str:
     lines.append("")
     lines.append("Do first:")
     lines.extend([
-        "- Start in `web/api/main.py` for API behavior and `apps/studio/console_backend.py` for read-service behavior.",
-        "- For workflow launch/status, trace `launch_workflow()` into `web/api/jobs.py` and the matching `agents/*/workflow.py` wrapper.",
-        "- Keep path traversal, edit policy, backup, and diff logging behavior intact when changing artifact writes.",
+        "- Start with the route files listed in Section 10 for API behavior.",
+        "- Trace handlers into services, models, persistence, and external integrations before changing response shape.",
+        "- Keep authentication, authorization, validation, and error behavior intact when changing writes.",
     ])
     lines.append("")
-    lines.append("Avoid: duplicating repo-file parsing in the API when a canonical read-service helper already exists.")
+    lines.append("Avoid: duplicating business logic in route handlers when a service/model layer already owns it.")
     return "\n".join(lines)
 
 
 def _data_governance_track(analysis: RepoAnalysis) -> str:
-    lines = ["### Data / Governance Engineer", "", "Purpose: make generated analytics artifacts trustworthy enough for operators and client teams."]
-    relevant = [signal for signal in analysis.data_signals if "semantic_layer" in signal or "constraints" in signal or "governance" in signal]
+    lines = ["### Data / Governance Engineer", "", "Purpose: make persisted data, schemas, domain rules, and generated outputs trustworthy."]
+    relevant = [signal for signal in analysis.data_signals if "semantic_layer" in signal or "constraints" in signal or "governance" in signal or "alembic" in signal or "migration" in signal]
     if relevant:
         lines.append("")
         lines.append("Signals to inspect:")
@@ -407,10 +417,10 @@ def _data_governance_track(analysis: RepoAnalysis) -> str:
     lines.extend([
         "- Identify whether a metric is only requested, implemented, evidenced, or validated.",
         "- Use constraints/evidence files to distinguish reusable rules from analyst narrative.",
-        "- Run the semantic-layer or pytest checks that cover the changed contract.",
+        "- Run the migration, schema, backend, or pytest checks that cover the changed contract.",
     ])
     lines.append("")
-    lines.append("Avoid: treating a KB sentence as authoritative when metric YAML or evidence says something different.")
+    lines.append("Avoid: treating prose docs as authoritative when schema/model/test behavior says something different.")
     return "\n".join(lines)
 
 
@@ -419,7 +429,7 @@ def _project_manager_track(analysis: RepoAnalysis) -> str:
     lines.append("")
     lines.append("What to inspect:")
     lines.extend([
-        "- Section 11 source-of-truth pressure: where client artifacts can disagree.",
+        "- Section 11 source-of-truth pressure: where docs, API code, models, and tests can disagree.",
         "- Section 9 core user journeys: which workflow the team is actually improving.",
         "- Section 15 quality bar: what must be true before work is considered done.",
     ])
@@ -428,10 +438,10 @@ def _project_manager_track(analysis: RepoAnalysis) -> str:
     lines.extend([
         "- Pick the user journey and the artifact that proves it worked.",
         "- Define acceptance as a file, route, command, or validation result, not just a status update.",
-        "- Ask which artifact is decision-grade and who owns corrections after generation.",
+        "- Ask which source is decision-grade and who owns corrections after behavior changes.",
     ])
     lines.append("")
-    lines.append("Avoid: planning around generic platform progress without naming the client artifact or workflow that changes.")
+    lines.append("Avoid: planning around generic repo progress without naming the user journey or product behavior that changes.")
     return "\n".join(lines)
 
 
@@ -459,9 +469,9 @@ def _onboarding_contracts(analysis: RepoAnalysis) -> str:
 
 def _first_contribution_paths(analysis: RepoAnalysis) -> str:
     paths = [
-        "Analyst: improve one KB/evidence/requirements inconsistency and document the precedence used.",
-        "Frontend: improve one client detail panel or artifact reader state, then run frontend tests/typecheck.",
-        "Backend: add or tighten one API response path without bypassing read-service helpers.",
+        "Product/domain: improve one docs/requirements inconsistency and document the precedence used.",
+        "Frontend: improve one route/page state, then run frontend tests/typecheck.",
+        "Backend: add or tighten one API response path without bypassing existing service helpers.",
         "Data/governance: add one validation fixture or constraint rule and prove it with tests.",
         "Project manager: convert one vague roadmap item into an artifact-backed acceptance checklist.",
     ]
@@ -470,9 +480,9 @@ def _first_contribution_paths(analysis: RepoAnalysis) -> str:
 
 def _avoid_week_one(analysis: RepoAnalysis) -> str:
     items = [
-        "Do not edit generated semantic-layer artifacts unless validation expectations are explicit.",
+        "Do not edit generated or persisted domain artifacts unless validation expectations are explicit.",
         "Do not change artifact write behavior without preserving path traversal checks, backups, and edit logs.",
-        "Do not treat analyst KB prose as authoritative when metric YAML, evidence, or constraints conflict.",
+        "Do not treat prose docs as authoritative when code, schemas, tests, or migrations conflict.",
         "Do not start by refactoring shared utilities before tracing one concrete user journey.",
     ]
     if analysis.workflow_summaries:
@@ -492,6 +502,66 @@ def _quality_bar(analysis: RepoAnalysis) -> str:
         lines.append("- Run the narrowest relevant command from Section 12 before opening a PR.")
     if analysis.ci_signals:
         lines.append(f"- Confirm CI coverage in `{analysis.ci_signals[0]}` for shared behavior.")
+    return "\n".join(lines)
+
+
+def _executive_summary(analysis: RepoAnalysis) -> str:
+    lines = []
+    if analysis.readme_summary:
+        lines.append("Product/context from README:")
+        lines.extend(f"- {item}" for item in analysis.readme_summary[:4])
+        lines.append("")
+
+    stack = ", ".join(item["language"] for item in analysis.languages[:4]) or "unknown"
+    areas = ", ".join(f"`{profile['name']}/`" for profile in analysis.directory_profiles[:6]) or "not enough directory signal"
+    lines.extend([
+        f"- Primary stack signals: {stack}.",
+        f"- Main repo areas: {areas}.",
+    ])
+    if analysis.api_routes:
+        lines.append(f"- Backend/API surface: {len(analysis.api_routes)} route(s) detected.")
+    if analysis.frontend_routes:
+        concrete = [route for route in analysis.frontend_routes if route["route"] != "*"]
+        lines.append(f"- Frontend surface: {len(concrete)} concrete route(s) detected.")
+    if analysis.commands:
+        command_preview = ", ".join(f"`{command['command']}`" for command in analysis.commands[:4])
+        lines.append(f"- Verification candidates: {command_preview}.")
+    if analysis.risks:
+        lines.append(f"- Main risk to confirm: {analysis.risks[0]}")
+    return "\n".join(lines)
+
+
+def _discovery_confidence(analysis: RepoAnalysis) -> str:
+    score = 0
+    evidence = []
+    gaps = []
+    checks = [
+        (bool(analysis.readme_summary or analysis.doc_headings), 15, "README/docs parsed", "README/docs context is thin"),
+        (bool(analysis.languages), 10, "language mix detected", "language mix unavailable"),
+        (bool(analysis.manifests), 15, "package/build manifests detected", "no package/build manifests detected"),
+        (bool(analysis.commands), 15, "runnable commands inferred", "no commands inferred"),
+        (bool(analysis.test_signals), 10, "tests detected", "no test files detected"),
+        (bool(analysis.ci_signals), 10, "CI detected", "no CI detected"),
+        (bool(analysis.api_routes or analysis.entrypoints), 10, "backend entrypoints/routes detected", "backend entrypoints unclear"),
+        (bool(analysis.frontend_routes or analysis.frontend_signals), 10, "frontend surface detected", "frontend surface unclear"),
+        (bool(analysis.env_signals), 5, "environment example detected", "no env example detected"),
+    ]
+    for passed, points, good, gap in checks:
+        if passed:
+            score += points
+            evidence.append(good)
+        else:
+            gaps.append(gap)
+
+    rating = "High" if score >= 80 else "Medium" if score >= 55 else "Low"
+    lines = [
+        f"- Score: {score}/100 ({rating})",
+        f"- Evidence: {', '.join(evidence[:8])}.",
+    ]
+    if gaps:
+        lines.append(f"- Remaining uncertainty: {', '.join(gaps[:5])}.")
+    else:
+        lines.append("- Remaining uncertainty: low from static scan; still confirm real setup commands with the maintainer.")
     return "\n".join(lines)
 
 
@@ -570,14 +640,17 @@ def _detected_domains_section(analysis: RepoAnalysis) -> str:
 
 def _current_understanding(analysis: RepoAnalysis) -> str:
     lines = ["### Product / Business", ""]
-    if analysis.business_artifacts:
-        lines.append("- Confirmed: client-specific profiles, requirements, KBs, evidence, constraints, and artifact indexes are stored in-repo.")
+    if analysis.readme_summary:
+        for item in analysis.readme_summary[:3]:
+            lines.append(f"- Confirmed from README: {item}")
+    elif analysis.business_artifacts:
+        lines.append("- Confirmed: domain-specific docs or artifacts are stored in-repo.")
     else:
-        lines.append("- Unknown: no strong in-repo business artifacts were detected.")
+        lines.append("- Unknown: no strong product/domain context was detected.")
     if analysis.doc_headings:
         first = analysis.doc_headings[0]
         lines.append(f"- Confirmed: root documentation starts at `{first['path']}:{first['line']}` with `{first['heading']}`.")
-    lines.append("- Unknown: exact production owner and release gate still need maintainer confirmation.")
+    lines.append("- Unknown: exact production owner, deployment target, and release gate still need maintainer confirmation.")
     lines.append("")
     lines.append("### Repository Shape")
     if analysis.detected_domains:
@@ -586,14 +659,19 @@ def _current_understanding(analysis: RepoAnalysis) -> str:
     if analysis.api_routes and analysis.frontend_routes:
         lines.append("- Confirmed: this repo exposes both a backend API and a frontend UI surface.")
     if analysis.workflow_summaries:
-        lines.append("- Confirmed: agent workflows use explicit input/result contract wrappers.")
-    lines.append("- Likely: safest onboarding path is to follow one client artifact journey instead of reading the repo alphabetically.")
+        lines.append("- Confirmed: automation workflows or typed workflow wrappers are present.")
+    lines.append("- Likely: safest onboarding path is to trace one user journey across frontend, API, backend, and persistence before changing code.")
     return "\n".join(lines)
 
 
 def _business_context(analysis: RepoAnalysis) -> str:
     lines = []
+    if analysis.readme_summary:
+        lines.append("README summary:")
+        lines.extend(f"- {item}" for item in analysis.readme_summary[:5])
     if analysis.client_domains:
+        if lines:
+            lines.append("")
         preview = ", ".join(f"`{name}`" for name in analysis.client_domains[:20])
         lines.append(f"Client/domain folders detected: {preview}")
     if analysis.doc_headings:
@@ -612,7 +690,7 @@ def _business_context(analysis: RepoAnalysis) -> str:
 
 def _business_artifacts(analysis: RepoAnalysis) -> str:
     if not analysis.business_artifacts:
-        return "No client, stakeholder, metric, evidence, or requirements artifacts were detected."
+        return "No domain-specific profile, stakeholder, requirements, metric, evidence, or operating artifacts were detected."
     lines = ["| Artifact | Kind | Extracted title/context |", "|---|---|---|"]
     for artifact in analysis.business_artifacts[:20]:
         title = artifact["title"].replace("|", "\\|") if artifact["title"] else ""
@@ -622,31 +700,33 @@ def _business_artifacts(analysis: RepoAnalysis) -> str:
 
 def _source_of_truth_analysis(analysis: RepoAnalysis) -> str:
     if not analysis.business_artifacts:
-        return "No client artifacts were detected, so source-of-truth precedence cannot be inferred."
-    by_client: dict[str, list[str]] = {}
+        return "No domain-specific artifacts were detected, so source-of-truth precedence cannot be inferred. For this repo, start with README/product docs, then package manifests, then app routes/API handlers."
+    by_scope: dict[str, list[str]] = {}
     for artifact in analysis.business_artifacts:
         parts = artifact["path"].split("/")
-        client = parts[1] if len(parts) > 1 and parts[0] == "clients" else "platform"
-        by_client.setdefault(client, []).append(artifact["kind"])
+        scope = parts[1] if len(parts) > 1 and parts[0] == "clients" else parts[0]
+        by_scope.setdefault(scope, []).append(artifact["kind"])
 
     lines = ["| Scope | Artifact kinds present | Likely source-of-truth pressure |", "|---|---|---|"]
-    for client, kinds in sorted(by_client.items())[:12]:
+    for scope, kinds in sorted(by_scope.items())[:12]:
         counts = Counter(kinds)
         present = ", ".join(f"{kind} ({count})" for kind, count in counts.most_common())
         pressure = _source_truth_pressure(counts)
-        lines.append(f"| `{client}` | {present} | {pressure} |")
+        lines.append(f"| `{scope}` | {present} | {pressure} |")
     lines.append("")
-    lines.append("Recommended precedence when facts conflict: `profile.yaml` for client identity and stack, requirements for intended metrics, metric YAML for implemented semantics, evidence pack for verified values, constraints for reusable filters, KB for analyst-facing interpretation.")
+    lines.append("Recommended precedence when facts conflict: product/requirements docs for intent, API and route code for actual behavior, schemas/models/migrations for persisted state, tests/CI for verified behavior, README/setup docs for local operation.")
     return "\n".join(lines)
 
 
 def _source_truth_pressure(counts: Counter[str]) -> str:
+    if counts.get("product requirements"):
+        return "Medium: product intent exists; verify implementation against routes, models, and tests."
     if counts.get("client profile") and counts.get("requirements") and counts.get("metric definition") and counts.get("evidence pack"):
         return "High: intent, implementation, and verification all exist; conflicts need explicit precedence."
     if counts.get("client profile") and counts.get("knowledge base"):
         return "Medium: profile and narrative exist; verify metrics/evidence before treating as decision-grade."
     if counts.get("requirements") and not counts.get("metric definition"):
-        return "Backlog risk: requirements exist without obvious implemented metric YAML."
+        return "Backlog risk: requirements exist without obvious implementation artifact."
     return "Low/unknown from static artifact inventory."
 
 
@@ -731,30 +811,48 @@ def _likely_user_journeys(analysis: RepoAnalysis) -> str:
     routes = {route["route"] for route in analysis.api_routes}
     ui_routes = {route["route"] for route in analysis.frontend_routes}
     api_methods = {call["name"] for call in analysis.frontend_api_calls}
+    route_text = " ".join(sorted(routes | ui_routes)).lower()
+    route_pairs = sorted(routes | ui_routes)
+
+    if any("auth" in route or "login" in route for route in route_pairs):
+        journeys.append("Authentication flow: login/auth routes suggest the first critical journey is sign-in, token/session handling, and post-login routing.")
+    if any("onboarding" in route for route in route_pairs):
+        journeys.append("User onboarding flow: onboarding routes suggest a guided first-use path before the main product dashboard.")
+    if any("dashboard" in route for route in route_pairs):
+        journeys.append("Core product dashboard flow: dashboard routes likely represent the main authenticated user workspace.")
+    if any("profile" in route for route in route_pairs):
+        journeys.append("Profile management flow: profile routes suggest user setup, preferences, or saved entities are central product state.")
+    if any(route.startswith("/admin") or "/users" in route for route in route_pairs):
+        journeys.append("Admin operations flow: admin/user routes suggest maintainer workflows for user management, activation, blocking, merge, and configuration.")
+    if any("history" in route or "response" in route for route in route_pairs):
+        journeys.append("Result/history flow: response/history routes suggest users generate or inspect prior outputs over time.")
+
     if "/clients" in ui_routes and "/api/clients" in routes:
         journeys.append("Client overview: React `/clients` route reads `/api/clients`, then drills into `/clients/:slug` and `/api/clients/{slug}`.")
     if any("/artifacts" in route for route in routes):
-        journeys.append("Artifact review/edit loop: client detail UI can list artifacts, read semantic-layer files, and write artifact file edits through the API.")
+        journeys.append("Artifact review/edit loop: UI/API routes can list, read, or persist generated files or domain artifacts.")
     if any("/workflows/" in route for route in routes):
         journeys.append("Workflow launch loop: client route can approve stages, launch named workflows, and poll workflow status.")
     if {"knowledgeSearch", "artifactContent", "updateArtifactFile"} & api_methods:
         journeys.append("Knowledge workspace loop: typed frontend API methods support search, artifact reading, and edited artifact persistence.")
     if analysis.business_artifacts:
-        journeys.append("Business context loop: profiles, requirements, KBs, evidence packs, constraints, and artifact indexes form the operating record for each client.")
+        journeys.append("Domain-context loop: requirements, profiles, evidence, docs, and related artifacts form the operating record for product decisions.")
     if analysis.data_signals:
-        journeys.append("Governance loop: semantic-layer assets and constraints are checked by governance/validation code before artifacts should be treated as decision-grade.")
+        journeys.append("Data/governance loop: data assets, migrations, or constraints should be validated before product behavior is treated as reliable.")
+    if not journeys and ("api" in route_text or analysis.api_routes) and analysis.frontend_routes:
+        journeys.append("UI-to-API flow: start from the primary frontend route, identify its data-loading calls, then trace into the matching backend handler.")
     if not journeys:
         return "No end-to-end journeys could be inferred from static route/artifact signals."
     return "\n".join(f"- {journey}" for journey in journeys)
 
 
-def _engagement_path(analysis: RepoAnalysis) -> str:
+def _validation_path(analysis: RepoAnalysis) -> str:
     steps = [
-        "Start with the business record: read the relevant `clients/{slug}/profile.yaml`, requirements, KB, evidence pack, and artifact index together.",
-        "Open the UI path next: use frontend routes to identify what an operator can actually inspect or launch.",
-        "Trace one API call from the UI into `web/api/main.py`, then into the tool/agent/pipeline that produces the artifact.",
+        "Start with the product record: read README, product docs, package manifests, and any requirements/PRD files together.",
+        "Open the UI path next: use frontend routes to identify what a real user can inspect or change.",
+        "Trace one API call from the UI into the backend route handler, then into models/services/persistence.",
         "Run the smallest local checks that cover the touched area before trusting generated output.",
-        "Write down which artifact wins when profile, requirements, KB, evidence, and constraints disagree.",
+        "Write down which source wins when README, product docs, route code, schema/model code, and tests disagree.",
     ]
     if analysis.commands:
         command_names = ", ".join(f"`{command['command']}`" for command in analysis.commands[:4])
@@ -764,18 +862,18 @@ def _engagement_path(analysis: RepoAnalysis) -> str:
 
 def _hard_questions(analysis: RepoAnalysis) -> str:
     questions = [
-        "What painful business workflow does this repo make dramatically faster, and where is that proven in client artifacts?",
-        "Which single user path matters most: backend automation, Studio UI, analyst KB generation, semantic-layer validation, or something else?",
-        "What would break trust fastest for a client: wrong metric logic, stale evidence, bad UI state, slow agent output, or warehouse access failure?",
-        "Which generated artifacts are decision-grade, and which are still drafts that need human review?",
-        "What is the shortest demo path from raw client context to a useful business outcome?",
+        "What painful user or business workflow does this repo make faster or better, and where is that visible in product docs or routes?",
+        "Which single user path matters most for a first contributor: onboarding, dashboard use, auth, profile management, admin operations, or something else?",
+        "What would break user trust fastest: auth/session bugs, wrong generated output, stale persisted state, bad UI state, slow backend calls, or weak data validation?",
+        "Which docs describe intended behavior, and which tests prove actual behavior?",
+        "What is the shortest demo path from fresh clone to a useful product outcome?",
     ]
     if not analysis.api_routes:
         questions.append("If the app has a service layer, why are API routes not obvious from static scan?")
     if not analysis.frontend_routes and analysis.frontend_signals:
         questions.append("Is the frontend a true routed app or a single workspace surface, and does that match how users work?")
     if analysis.business_artifacts:
-        questions.append("Which client artifact is the source of truth when profile, KB, requirements, and evidence disagree?")
+        questions.append("Which artifact is the source of truth when product docs, requirements, API behavior, and tests disagree?")
     if analysis.commands:
         questions.append("Which detected command is the actual release gate, not just a local convenience command?")
     return "\n".join(f"- {question}" for question in questions)
@@ -826,9 +924,9 @@ def _risks(analysis: RepoAnalysis) -> str:
 def _next_steps(analysis: RepoAnalysis) -> str:
     steps = [
         "Run the most relevant detected setup/test commands and record exact pass/fail output.",
-        "Confirm which backend service, frontend app, and business workflow are the primary contributor path.",
-        "Map one end-to-end flow from UI/API entrypoint to data/business artifact.",
-        "Choose one business artifact as the source of truth and document conflict-resolution rules.",
+        "Confirm which backend service, frontend app, and product workflow are the primary contributor path.",
+        "Map one end-to-end flow from UI route to API handler to model/service/persistence.",
+        "Choose the source of truth for product behavior and document conflict-resolution rules.",
     ]
     if not analysis.env_signals:
         steps.insert(1, "Create or request an `.env.example` with non-secret placeholder values.")

@@ -14,6 +14,8 @@ EXCLUDED_DIRS = {
     ".git",
     ".claude",
     ".codex",
+    ".cursor",
+    ".taskmaster",
     ".hg",
     ".svn",
     ".venv",
@@ -29,7 +31,11 @@ EXCLUDED_DIRS = {
     "dist-types",
     "build",
     "coverage",
+    "dev-dist",
+    "playwright-report",
+    "test-results",
     ".next",
+    ".vite",
     ".turbo",
     "target",
     "tmp",
@@ -112,6 +118,7 @@ class RepoAnalysis:
     business_signals: list[str] = field(default_factory=list)
     business_artifacts: list[dict[str, str]] = field(default_factory=list)
     client_domains: list[str] = field(default_factory=list)
+    readme_summary: list[str] = field(default_factory=list)
     doc_headings: list[dict[str, str]] = field(default_factory=list)
     test_signals: list[str] = field(default_factory=list)
     ci_signals: list[str] = field(default_factory=list)
@@ -158,6 +165,7 @@ def analyze_repo(repo_root: Path | str, *, max_files: int = 5000) -> RepoAnalysi
         business_signals=_area_signals(root, files, "business"),
         business_artifacts=_business_artifacts(root, files),
         client_domains=_client_domains(root),
+        readme_summary=_readme_summary(root),
         doc_headings=_doc_headings(root, files),
         test_signals=_test_signals(rel_files),
         ci_signals=_ci_signals(rel_files),
@@ -294,7 +302,7 @@ def _detected_domains(directory_profiles: list[dict[str, Any]]) -> list[dict[str
     for profile in directory_profiles:
         name = profile["name"]
         files = profile["files"]
-        if files < 2 and name not in {"web", "clients", "agents", "semantic_layer", "governance"}:
+        if files < 2 and name not in {"web", "clients", "agents", "semantic_layer", "governance", "PRD", "prd"}:
             continue
         if name in {".github", "tests", "docs"} and files < 8:
             continue
@@ -316,13 +324,13 @@ def _slugify(text: str) -> str:
 def _directory_purpose(name: str) -> str:
     purposes = {
         ".github": "CI and repository automation",
-        "agents": "CLI/agent workflows that generate or validate analytics artifacts",
-        "apps": "local application surfaces and operator tooling",
-        "clients": "client-specific profiles, constraints, generated artifacts, KBs, requirements, and evidence",
-        "connectors": "warehouse and external-system connector abstractions",
-        "docs": "architecture, migration, audit, and operator documentation",
+        "agents": "automation or agent workflows",
+        "apps": "application surfaces and local tooling",
+        "clients": "client, tenant, or customer-specific artifacts",
+        "connectors": "external-system connector abstractions",
+        "docs": "architecture, setup, audit, and project documentation",
         "evals": "evaluation harnesses or fixtures",
-        "examples": "sample client inputs and metrics",
+        "examples": "sample inputs and usage examples",
         "governance": "quality gates, contracts, maturity checks, and freshness/audit logic",
         "llm": "LLM provider adapters and model-call abstractions",
         "pipelines": "offline processing pipelines and artifact generation helpers",
@@ -331,6 +339,10 @@ def _directory_purpose(name: str) -> str:
         "tests": "unit/integration tests and fixtures",
         "tools": "shared utility layer used by agents, scripts, and apps",
         "web": "FastAPI backend plus React/Vite frontend",
+        "packages": "monorepo packages or services",
+        "mockup": "static mockups or product prototypes",
+        "prd": "product requirements and planning docs",
+        "PRD": "product requirements and planning docs",
     }
     return purposes.get(name, "repository area")
 
@@ -818,7 +830,7 @@ def _area_priority(rel: str, area: str) -> tuple[int, str]:
         for index, prefix in enumerate(("semantic_layer/", "clients/", "governance/", "pipelines/", "agents/validate_semantic_layer/")):
             if lower.startswith(prefix):
                 return (index, lower)
-    if area == "business" and any(token in lower for token in ("clients/", "docs/", "governance/", "examples/")):
+    if area == "business" and any(token in lower for token in ("clients/", "docs/", "governance/", "examples/", "prd/")):
         return (0, lower)
     return (1, lower)
 
@@ -845,12 +857,12 @@ def _area_signal_for_file(rel: str, lower: str, text: str, area: str) -> str:
             return f"`{rel}` - frontend framework signal"
     elif area == "data":
         if any(lower.startswith(prefix) for prefix in ("semantic_layer/", "clients/", "pipelines/", "governance/", "agents/validate_semantic_layer/")):
-            return f"`{rel}` - data/analytics asset path"
+            return f"`{rel}` - data or domain asset path"
         data_source = lower.endswith((".sql", ".yml", ".yaml"))
         if lower.endswith(".sql") or (data_source and any(token in lower_text for token in ("metric", "dbt", "warehouse", "snowflake", "semantic layer"))):
             return f"`{rel}` - data model or metric signal"
     elif area == "business":
-        business_path = any(token in lower for token in ("clients/", "docs/", "governance/", "examples/"))
+        business_path = any(token in lower for token in ("clients/", "docs/", "governance/", "examples/", "prd/"))
         business_text = any(token in lower_text for token in (
             "stakeholder",
             "customer",
@@ -882,6 +894,7 @@ def _client_domains(root: Path) -> list[str]:
 def _business_artifacts(root: Path, files: list[Path]) -> list[dict[str, str]]:
     artifacts: list[dict[str, str]] = []
     keywords = {
+        "prd": "product requirements",
         "profile": "client profile",
         "stakeholders": "stakeholder map",
         "requirements": "requirements",
@@ -896,7 +909,7 @@ def _business_artifacts(root: Path, files: list[Path]) -> list[dict[str, str]]:
     for path in sorted(files):
         rel = path.relative_to(root).as_posix()
         lower = rel.lower()
-        if not lower.startswith(("clients/", "semantic_layer/", "governance/", "docs/", "examples/")):
+        if not lower.startswith(("clients/", "semantic_layer/", "governance/", "docs/", "examples/", "prd/")):
             continue
         kind = ""
         for token, label in keywords.items():
@@ -927,6 +940,46 @@ def _artifact_title(path: Path) -> str:
         except OSError:
             return ""
     return ""
+
+
+def _readme_summary(root: Path) -> list[str]:
+    path = root / "README.md"
+    if not path.exists():
+        return []
+    try:
+        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return []
+
+    summary: list[str] = []
+    in_project_section = False
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        heading = stripped.lstrip("#").strip().lower() if stripped.startswith("#") else ""
+        if heading:
+            in_project_section = any(token in heading for token in ("project", "projekcie", "overview", "about", "opis"))
+            if len(summary) < 1 and stripped.startswith("# "):
+                title = stripped.lstrip("#").strip()
+                summary.append(f"README title: {title}")
+            continue
+        if stripped.startswith(("-", "*", "```", "|", "[", "![", "<", ">")):
+            continue
+        if len(stripped) < 24:
+            continue
+        if in_project_section or len(summary) < 3:
+            summary.append(_shorten(stripped, 220))
+        if len(summary) >= 5:
+            break
+    return summary
+
+
+def _shorten(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    shortened = text[:limit].rsplit(" ", 1)[0].rstrip(".,;:")
+    return f"{shortened}..."
 
 
 def _doc_headings(root: Path, files: list[Path]) -> list[dict[str, str]]:
@@ -1062,7 +1115,7 @@ def _env_signals(rel_files: list[str]) -> list[str]:
 
 
 def _todos(root: Path, files: list[Path]) -> list[dict[str, str]]:
-    markers = ("TODO", "FIXME", "HACK")
+    marker_pattern = re.compile(r"\b(TODO|FIXME|HACK)\b")
     hits: list[dict[str, str]] = []
     for path in files:
         if path.suffix.lower() in BINARY_EXTENSIONS:
@@ -1072,7 +1125,7 @@ def _todos(root: Path, files: list[Path]) -> list[dict[str, str]]:
         except OSError:
             continue
         for index, line in enumerate(lines, start=1):
-            if any(marker in line for marker in markers):
+            if marker_pattern.search(line):
                 hits.append({
                     "path": path.relative_to(root).as_posix(),
                     "line": str(index),
