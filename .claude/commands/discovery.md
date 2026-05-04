@@ -2,7 +2,13 @@ Do NOT run python -m agents.*
 
 # /discovery
 
-Generate a repository discovery report for a local target repo.
+Generate a multi-perspective repository discovery report for a local target repo.
+The report should cover backend/service code, frontend/user experience, data or
+analytics assets, business usage context, commands, tests, CI, and setup risks.
+It should be specific enough to challenge whether the repo has a clear business
+job, source-of-truth artifacts, and an obvious path from code to user value.
+It must also identify detected repo domains / vertical slices from evidence
+rather than forcing a generic backend/frontend/devops taxonomy.
 
 ## Usage
 
@@ -64,5 +70,7 @@ reports/{repo-name}/discovery.md
 Final response must include:
 
 - path to `discovery.md`
-- 3-5 bullet summary from the generated report
+- 3-5 bullet summary covering backend, frontend, data/business context, commands, and risks
+- detected domains / vertical slices
+- the strongest business/source-of-truth question raised by the report
 - any risks listed in "Risks and Open Questions"

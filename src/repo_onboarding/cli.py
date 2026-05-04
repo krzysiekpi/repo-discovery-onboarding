@@ -4,7 +4,7 @@ import argparse
 import logging
 from pathlib import Path
 
-from repo_onboarding.render import render_discovery, render_onboarding
+from repo_onboarding.render import normalize_role, render_discovery, render_onboarding
 from repo_onboarding.scanner import analyze_repo
 
 
@@ -36,6 +36,16 @@ def main(argv: list[str] | None = None) -> int:
             default=5000,
             help="Maximum files to scan before truncating large repositories.",
         )
+        command_parser.add_argument(
+            "--role",
+            default="all",
+            help="Onboarding role focus: all, analyst, frontend, backend, data-governance, project-manager.",
+        )
+        command_parser.add_argument(
+            "--update",
+            action="store_true",
+            help="Refresh onboarding while preserving the Manual Notes block.",
+        )
 
     args = parser.parse_args(argv)
     try:
@@ -46,6 +56,11 @@ def main(argv: list[str] | None = None) -> int:
 
     out_dir = Path(args.out).expanduser().resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        role = normalize_role(args.role)
+    except ValueError as exc:
+        log.error("%s", exc)
+        return 2
 
     written: list[Path] = []
     if args.command in {"discovery", "all"}:
@@ -53,10 +68,26 @@ def main(argv: list[str] | None = None) -> int:
         path.write_text(render_discovery(analysis), encoding="utf-8")
         written.append(path)
     if args.command in {"onboarding", "all"}:
-        path = out_dir / "onboarding.md"
-        path.write_text(render_onboarding(analysis), encoding="utf-8")
+        path = out_dir / _onboarding_filename(role)
+        manual_notes = _read_manual_notes(path) if args.update else ""
+        path.write_text(render_onboarding(analysis, role=role, manual_notes=manual_notes), encoding="utf-8")
         written.append(path)
 
     for path in written:
         log.info("Wrote %s", path)
     return 0
+
+
+def _onboarding_filename(role: str) -> str:
+    return "onboarding.md" if role == "all" else f"onboarding_{role}.md"
+
+
+def _read_manual_notes(path: Path) -> str:
+    if not path.exists():
+        return ""
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    start = "<!-- MANUAL_NOTES:START -->"
+    end = "<!-- MANUAL_NOTES:END -->"
+    if start not in text or end not in text:
+        return ""
+    return text.split(start, 1)[1].split(end, 1)[0].strip()
